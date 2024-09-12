@@ -1,13 +1,26 @@
 library(readxl)
 library(dplyr)
+library(sf)
+library(plm)
+library(spdep)
+library(splm)
 
-file_list <- list.files(path = "dados", pattern = "*.xlsx", full.names = TRUE)
-all_data <- lapply(file_list, read_excel) %>% 
-  bind_rows() %>%
-  filter(!(Territorialidades %in% c("Brasil", 
-                                    "Elaboração: Atlas do Desenvolvimento Humano no Brasil. Pnud Brasil, Ipea e FJP, 2022.", 
-                                    "Fontes: dados do IBGE e de registros administrativos, conforme especificados nos metadados disponíveis disponíveis em: http://atlasbrasil.org.br/acervo/biblioteca.")
-           )) %>%
-  filter(!is.na(Territorialidades))
+setwd(getwd())
 
+dados <- readxl::read_excel("dados/dados.xlsx")
+shape <- sf::st_read("dados/shapefile/regioes_imediatas.shp")
 
+pdata <- plm::pdata.frame(dados, index=c("cod_rgi", "ano"))
+form <- poupanca ~ log_renda + anos_estudo + razao_idosos
+
+# Fixed effects model
+fe_model <- plm(form, data = pdata, model = "within")
+summary(fe_model)
+
+# Random effects model
+re_model <- plm(form, data = pdata, model = "random")
+summary(re_model)
+
+# Hausman test
+hausman_test <- phtest(fe_model, re_model)
+print(hausman_test)
